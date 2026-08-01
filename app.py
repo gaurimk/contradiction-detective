@@ -13,9 +13,7 @@ from diary_writer import save_diary_entry
 
 st.set_page_config(page_title="Contradiction Detective", page_icon="🕵️", layout="centered")
 
-password = st.text_input("Enter access password", type="password")
-if password != st.secrets.get("APP_PASSWORD", ""):
-    st.stop()
+
 
 # ---------- Ingestion check (checks actual DATA count, not just folder existence) ----------
 _client_check = chromadb.PersistentClient(path="./chroma_store")
