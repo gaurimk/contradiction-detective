@@ -1,11 +1,8 @@
 streamlit
 groq
-ollama
 chromadb
 pandas
 altair
 sentence-transformers
-langchain
-langchain-community
-langchain-text-splitters
-python-dotenv
+python-dateutil
+requests

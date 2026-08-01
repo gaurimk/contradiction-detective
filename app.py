@@ -3,6 +3,7 @@ import datetime
 import pandas as pd
 import altair as alt
 import streamlit as st
+import chromadb
 
 from ingest import main as run_ingest
 from retrieve import dialectic_retrieve
@@ -10,18 +11,19 @@ from drift import drift_summary
 from synthesize import synthesize
 from diary_writer import save_diary_entry
 
-if not os.path.exists("./chroma_store"):
-    with st.spinner("First-time setup: embedding your diary..."):
-        run_ingest()
-from retrieve import dialectic_retrieve
-from drift import drift_summary
-from synthesize import synthesize
-from diary_writer import save_diary_entry
-
 st.set_page_config(page_title="Contradiction Detective", page_icon="🕵️", layout="centered")
+
 password = st.text_input("Enter access password", type="password")
 if password != st.secrets.get("APP_PASSWORD", ""):
     st.stop()
+
+# ---------- Ingestion check (checks actual DATA count, not just folder existence) ----------
+_client_check = chromadb.PersistentClient(path="./chroma_store")
+_collection_check = _client_check.get_or_create_collection("notes")
+
+if _collection_check.count() == 0:
+    with st.spinner("First-time setup: embedding your diary... (this can take a minute)"):
+        run_ingest()
 
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -123,10 +125,7 @@ def render_timeline(supporting, opposing):
 with st.sidebar:
     st.header("📊 Diary Snapshot")
     try:
-        import chromadb
-        client = chromadb.PersistentClient(path="./chroma_store")
-        collection = client.get_or_create_collection("notes")
-        count = collection.count()
+        count = _collection_check.count()
         st.metric("Entries embedded", count)
     except Exception:
         st.write("No data ingested yet.")
@@ -139,7 +138,7 @@ with st.sidebar:
             st.caption(h["drift"])
 
     st.divider()
-    st.caption("Built with a local, free, dialectic RAG pipeline — Ollama + ChromaDB.")
+    st.caption("Built with a free, hosted dialectic RAG pipeline — Groq + ChromaDB + sentence-transformers.")
 
 # ---------- Tabs ----------
 tab_ask, tab_write = st.tabs(["💬 Ask a Question", "✍️ Write Today's Entry"])
@@ -180,39 +179,53 @@ with tab_ask:
             result = dialectic_retrieve(query)
         with st.spinner("🧭 Hunting for the opposite point of view..."):
             drift_note = drift_summary(result["supporting"], result["opposing"])
-        with st.spinner("🧩 Weighing both sides..."):
-            answer = synthesize(query, result, drift_note)
 
-        st.session_state.history.insert(0, {"question": query, "drift": drift_note})
+        if not result["supporting"] and not result["opposing"]:
+            st.warning(
+                "⚠️ No matching diary entries were found for this question. "
+                "The database may still be empty, or nothing in your diary relates closely "
+                "enough to this question."
+            )
+        else:
+            with st.spinner("🧩 Weighing both sides..."):
+                answer = synthesize(query, result, drift_note)
 
-        st.divider()
-        st.subheader("💬 Answer")
-        st.write(answer)
+            st.session_state.history.insert(0, {"question": query, "drift": drift_note})
 
-        st.markdown(
-            f'<div class="drift-banner">📈 <b>Drift signal:</b> {drift_note}</div>',
-            unsafe_allow_html=True,
-        )
-        render_timeline(result["supporting"], result["opposing"])
+            st.divider()
+            st.subheader("💬 Answer")
+            st.write(answer)
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("#### ✅ Supporting")
-            for c in sorted(result["supporting"], key=lambda x: x["date"]):
-                st.markdown(
-                    f'<div class="evidence-card-support"><b>{c["date"]}</b><br>{c["text"]}</div>',
-                    unsafe_allow_html=True,
-                )
-        with col2:
-            st.markdown("#### ❌ Opposing")
-            for c in sorted(result["opposing"], key=lambda x: x["date"]):
-                st.markdown(
-                    f'<div class="evidence-card-oppose"><b>{c["date"]}</b><br>{c["text"]}</div>',
-                    unsafe_allow_html=True,
-                )
+            st.markdown(
+                f'<div class="drift-banner">📈 <b>Drift signal:</b> {drift_note}</div>',
+                unsafe_allow_html=True,
+            )
+            render_timeline(result["supporting"], result["opposing"])
 
-        with st.expander("🔍 What the AI searched for"):
-            st.write(f"**Your question:** {query}")
-            st.write(f"**Opposite framing used for search:** {result['negated_query']}")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("#### ✅ Supporting")
+                if result["supporting"]:
+                    for c in sorted(result["supporting"], key=lambda x: x["date"]):
+                        st.markdown(
+                            f'<div class="evidence-card-support"><b>{c["date"]}</b><br>{c["text"]}</div>',
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.caption("No supporting evidence found.")
+            with col2:
+                st.markdown("#### ❌ Opposing")
+                if result["opposing"]:
+                    for c in sorted(result["opposing"], key=lambda x: x["date"]):
+                        st.markdown(
+                            f'<div class="evidence-card-oppose"><b>{c["date"]}</b><br>{c["text"]}</div>',
+                            unsafe_allow_html=True,
+                        )
+                else:
+                    st.caption("No opposing evidence found.")
+
+            with st.expander("🔍 What the AI searched for"):
+                st.write(f"**Your question:** {query}")
+                st.write(f"**Opposite framing used for search:** {result['negated_query']}")
     else:
         st.write("👆 Pick a sample question above, or type your own, to get started.")
