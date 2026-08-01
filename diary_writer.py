@@ -2,7 +2,8 @@ import os
 import json
 import datetime
 import chromadb
-import ollama
+
+from embed_utils import embed
 from github_sync import commit_file
 
 DIARY_PATH = "data/notes/diary_2026_daily_paragraphs.txt"
@@ -14,10 +15,6 @@ def chunk_text(text: str, chunk_size: int = CHUNK_WORDS):
     words = text.split()
     for i in range(0, len(words), chunk_size):
         yield " ".join(words[i:i + chunk_size])
-
-
-def embed(text: str):
-    return ollama.embeddings(model="nomic-embed-text", prompt=text)["embedding"]
 
 
 def load_manifest():
@@ -39,6 +36,7 @@ def append_to_diary_file(entry_date: datetime.date, entry_text: str):
     entry_line = f"{entry_date.strftime('%B')} {entry_date.day} — {entry_text.strip()}"
 
     header_exists = False
+
     if os.path.exists(DIARY_PATH):
         with open(DIARY_PATH, "r") as f:
             header_exists = any(line.strip() == header_line for line in f)
@@ -52,6 +50,7 @@ def append_to_diary_file(entry_date: datetime.date, entry_text: str):
 
 def ingest_single_entry(entry_date: datetime.date, entry_text: str):
     """Embeds just this one new entry and adds it to the vector store immediately."""
+
     date_str = entry_date.strftime("%Y-%m-%d")
 
     client = chromadb.PersistentClient(path="./chroma_store")
@@ -59,6 +58,7 @@ def ingest_single_entry(entry_date: datetime.date, entry_text: str):
 
     for i, chunk in enumerate(chunk_text(entry_text)):
         embedding = embed(chunk)
+
         chunk_id = f"{date_str}-{i}"
 
         collection.upsert(
@@ -79,19 +79,15 @@ def ingest_single_entry(entry_date: datetime.date, entry_text: str):
 
 
 def save_diary_entry(entry_date: datetime.date, entry_text: str):
-    """Public function app.py calls: writes to file, embeds it, and commits to GitHub."""
+    """Writes the diary entry, embeds it, and commits it to GitHub."""
 
-    # Save the diary entry
     append_to_diary_file(entry_date, entry_text)
 
-    # Embed the new entry
     ingest_single_entry(entry_date, entry_text)
 
-    # Read updated diary
     with open(DIARY_PATH, "r") as f:
         full_content = f.read()
 
-    # Commit updated diary to GitHub
     commit_file(
         DIARY_PATH,
         full_content,
