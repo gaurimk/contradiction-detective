@@ -3,18 +3,22 @@ import json
 import datetime
 import chromadb
 import ollama
+from github_sync import commit_file
 
 DIARY_PATH = "data/notes/diary_2026_daily_paragraphs.txt"
 MANIFEST_PATH = "./ingested_dates.json"
 CHUNK_WORDS = 250
+
 
 def chunk_text(text: str, chunk_size: int = CHUNK_WORDS):
     words = text.split()
     for i in range(0, len(words), chunk_size):
         yield " ".join(words[i:i + chunk_size])
 
+
 def embed(text: str):
     return ollama.embeddings(model="nomic-embed-text", prompt=text)["embedding"]
+
 
 def load_manifest():
     if os.path.exists(MANIFEST_PATH):
@@ -22,9 +26,11 @@ def load_manifest():
             return set(json.load(f))
     return set()
 
+
 def save_manifest(dates):
     with open(MANIFEST_PATH, "w") as f:
         json.dump(sorted(dates), f)
+
 
 def append_to_diary_file(entry_date: datetime.date, entry_text: str):
     """Appends one entry to the diary .txt in the same MONTH header + 'Month Day — text' format."""
@@ -43,6 +49,7 @@ def append_to_diary_file(entry_date: datetime.date, entry_text: str):
         else:
             f.write(f"\n{entry_line}\n")
 
+
 def ingest_single_entry(entry_date: datetime.date, entry_text: str):
     """Embeds just this one new entry and adds it to the vector store immediately."""
     date_str = entry_date.strftime("%Y-%m-%d")
@@ -53,25 +60,40 @@ def ingest_single_entry(entry_date: datetime.date, entry_text: str):
     for i, chunk in enumerate(chunk_text(entry_text)):
         embedding = embed(chunk)
         chunk_id = f"{date_str}-{i}"
+
         collection.upsert(
             ids=[chunk_id],
             embeddings=[embedding],
             documents=[chunk],
-            metadatas=[{"date": date_str, "source": os.path.basename(DIARY_PATH)}],
+            metadatas=[
+                {
+                    "date": date_str,
+                    "source": os.path.basename(DIARY_PATH),
+                }
+            ],
         )
 
     manifest = load_manifest()
     manifest.add(date_str)
     save_manifest(manifest)
 
+
 def save_diary_entry(entry_date: datetime.date, entry_text: str):
-    """Public function app.py calls: writes to file AND embeds it, in one step."""
+    """Public function app.py calls: writes to file, embeds it, and commits to GitHub."""
+
+    # Save the diary entry
     append_to_diary_file(entry_date, entry_text)
+
+    # Embed the new entry
     ingest_single_entry(entry_date, entry_text)
 
+    # Read updated diary
+    with open(DIARY_PATH, "r") as f:
+        full_content = f.read()
 
-from github_sync import commit_file
-
-with open(DIARY_PATH, "r") as f:
-    full_content = f.read()
-commit_file(DIARY_PATH, full_content, f"Add entry for {entry_date}")
+    # Commit updated diary to GitHub
+    commit_file(
+        DIARY_PATH,
+        full_content,
+        f"Add entry for {entry_date}"
+    )
