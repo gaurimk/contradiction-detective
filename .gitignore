@@ -5,4 +5,4 @@ chroma_store/
 __pycache__/
 ingested_dates.json
 .DS_Store
-EOF
+EOFingested_dates.json

@@ -82,6 +82,12 @@ def main():
 
     already_ingested = load_manifest()
 
+    # Safety check: if the manifest claims entries exist but the actual
+    # vector store is empty (e.g. a stale manifest got deployed onto a
+    # fresh server), the manifest is lying — ignore it and rebuild from scratch.
+    if collection.count() == 0:
+        already_ingested = set()
+
     new_count = 0
 
     for filename in os.listdir(NOTES_DIR):
