@@ -13,7 +13,9 @@ from diary_writer import save_diary_entry
 
 st.set_page_config(page_title="Contradiction Detective", page_icon="🕵️", layout="centered")
 
-
+password = st.text_input("Enter access password", type="password")
+if password != st.secrets.get("APP_PASSWORD", ""):
+    st.stop()
 
 # ---------- Ingestion check (checks actual DATA count, not just folder existence) ----------
 _client_check = chromadb.PersistentClient(path="./chroma_store")
@@ -35,6 +37,13 @@ st.markdown("""
     .stApp {
         background: linear-gradient(180deg, #0e1117 0%, #161a23 100%);
     }
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #161a23 0%, #0e1117 100%);
+        border-right: 1px solid #2a2f3a;
+    }
+    [data-testid="stSidebar"] * {
+        color: #e6e6e6 !important;
+    }
     .main-title {
         font-size: 2.6rem;
         font-weight: 800;
@@ -51,7 +60,7 @@ st.markdown("""
     }
     div.stButton > button {
         border-radius: 12px;
-        border: 1px solid #333944;
+        border: 1px solid #3a3f52;
         background-color: #1c202b;
         color: #e6e6e6;
         padding: 0.6rem;
@@ -61,6 +70,7 @@ st.markdown("""
         border-color: #ff5b8f;
         color: #ff5b8f;
         background-color: #23273350;
+        box-shadow: 0 0 12px #ff5b8f30;
     }
     .evidence-card-support {
         border-left: 4px solid #4ade80;
