@@ -1,14 +1,18 @@
 import os
-from ingest import main as run_ingest
-
-if not os.path.exists("./chroma_store"):
-    with st.spinner("First-time setup: embedding your diary..."):
-        run_ingest()
-
 import datetime
 import pandas as pd
 import altair as alt
 import streamlit as st
+
+from ingest import main as run_ingest
+from retrieve import dialectic_retrieve
+from drift import drift_summary
+from synthesize import synthesize
+from diary_writer import save_diary_entry
+
+if not os.path.exists("./chroma_store"):
+    with st.spinner("First-time setup: embedding your diary..."):
+        run_ingest()
 from retrieve import dialectic_retrieve
 from drift import drift_summary
 from synthesize import synthesize
