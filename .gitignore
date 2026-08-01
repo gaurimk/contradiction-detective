@@ -1,0 +1,8 @@
+cat > .gitignore << 'EOF'
+venv/
+chroma_store/
+.streamlit/secrets.toml
+__pycache__/
+ingested_dates.json
+.DS_Store
+EOF
