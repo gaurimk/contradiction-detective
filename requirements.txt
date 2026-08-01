@@ -1,8 +1,11 @@
 streamlit
-chromadb
-sentence-transformers
 groq
-requests
-python-dateutil
+ollama
+chromadb
 pandas
 altair
+sentence-transformers
+langchain
+langchain-community
+langchain-text-splitters
+python-dotenv
