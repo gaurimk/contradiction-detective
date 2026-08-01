@@ -37,6 +37,14 @@ st.markdown("""
     .stApp {
         background: linear-gradient(180deg, #0e1117 0%, #161a23 100%);
     }
+    .stApp, .stApp p, .stApp li, .stApp span,
+    .stMarkdown, .stMarkdown p, .stMarkdown li,
+    h1, h2, h3, h4, h5, h6 {
+        color: #e6e6e6 !important;
+    }
+    .stApp .stMarkdown a {
+        color: #ff8a5b !important;
+    }
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #161a23 0%, #0e1117 100%);
         border-right: 1px solid #2a2f3a;
